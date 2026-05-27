@@ -127,3 +127,7 @@ ALTER TABLE "WeeklyTopic" ADD CONSTRAINT "WeeklyTopic_resourceId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "Suggestion" ADD CONSTRAINT "Suggestion_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- CreateIndex (added in fix commit per code-review feedback: explicit FK indexes)
+CREATE INDEX IF NOT EXISTS "SequenceAssignment_sequenceId_idx" ON "SequenceAssignment"("sequenceId");
+CREATE INDEX IF NOT EXISTS "WeeklyTopic_resourceId_idx" ON "WeeklyTopic"("resourceId");
