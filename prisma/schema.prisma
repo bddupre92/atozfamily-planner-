@@ -1,0 +1,312 @@
+// ============================================================================
+// ATOZFAMILY PLANNER — DATA MODEL
+// ============================================================================
+// Design principles:
+// 1. Two-user shared workspace (you + wife). No multi-tenancy in Phase 1.
+// 2. Audit-friendly: every meaningful change writes an AuditLog row.
+// 3. Lessons are first-class entities (per-lesson tracking is a Phase 1 must-have).
+// 4. Soft-delete via deletedAt rather than hard delete (Oregon portfolio defense).
+// 5. JSONB used sparingly — only for free-form planner state (schedule template
+//    overrides, custom notes). All trackable progress is in real tables.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ============================================================================
+// AUTH (NextAuth v5 standard tables)
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  accounts          Account[]
+  sessions          Session[]
+  reflections       Reflection[]      @relation("ReflectionAuthor")
+  lessons           Lesson[]          @relation("LessonRecorder")
+  auditLogs         AuditLog[]
+  notes             Note[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// CORE DOMAIN — CHILDREN, TERMS, LESSONS
+// ============================================================================
+
+model Child {
+  id          String   @id @default(cuid())
+  name        String
+  age         String   // "7", "4-5", "2" — kept as string for flexibility
+  grade       String   // "2nd", "Pre-K / K", "Tot"
+  birthDate   DateTime?
+  colorKey    String   // "terracotta" | "sage" | "lavender" — for UI theming
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  lessons       Lesson[]
+  reflections   Reflection[]
+  termProgress  TermProgress[]
+  testRecords   TestRecord[]
+}
+
+model Term {
+  id          String   @id  // "summer-2026", "fall-2026", etc.
+  name        String
+  season      String   // "summer" | "fall" | "spring"
+  startDate   DateTime
+  endDate     DateTime
+  weeks       Int
+  theme       String   @db.Text
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  progress    TermProgress[]
+  lessons     Lesson[]
+}
+
+model TermProgress {
+  id                String   @id @default(cuid())
+  termId            String
+  childId           String
+  lessonsComplete   Int      @default(0)
+  notes             String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  term              Term     @relation(fields: [termId], references: [id])
+  child             Child    @relation(fields: [childId], references: [id])
+
+  @@unique([termId, childId])
+}
+
+// Lesson = a single completed lesson record. This is the core per-lesson
+// tracking entity. Every "I did LOE Foundations C Lesson 12 with Eldest today"
+// creates one of these.
+model Lesson {
+  id          String      @id @default(cuid())
+  childId     String
+  recorderId  String      // which parent logged it
+  termId      String?     // computed from date but stored for fast queries
+
+  subject     Subject     // ENGLISH | MATH | SCIENCE | HISTORY | OTHER
+  curriculum  String      // e.g. "LOE Foundations C", "Singapore Math 2A"
+  lessonRef   String      // e.g. "Lesson 12", "Chapter 3", "Unit 2.4"
+  topic       String?     // free-text: "Phonogram /sh/", "Subtraction with borrowing"
+
+  date        DateTime    // when the lesson actually happened
+  durationMin Int?        // optional: how long it took
+  status      LessonStatus @default(COMPLETED)
+  difficulty  Int?        // 1-5: how hard was this for the child today
+  notes       String?     @db.Text
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  child       Child       @relation(fields: [childId], references: [id])
+  recorder    User        @relation("LessonRecorder", fields: [recorderId], references: [id])
+  term        Term?       @relation(fields: [termId], references: [id])
+
+  @@index([childId, date])
+  @@index([date])
+}
+
+enum Subject {
+  ENGLISH
+  MATH
+  SCIENCE
+  HISTORY
+  ART
+  MUSIC
+  PE
+  OTHER
+}
+
+enum LessonStatus {
+  COMPLETED
+  PARTIAL
+  ABANDONED  // started but bad day — Oregon defense: still counts as instruction time
+}
+
+// ============================================================================
+// DAILY REFLECTION — the highest-leverage habit
+// ============================================================================
+
+model Reflection {
+  id          String   @id @default(cuid())
+  authorId    String
+  childId     String?  // null = whole-family reflection
+  date        DateTime @db.Date
+
+  whatWorked  String?  @db.Text
+  whatDidnt   String?  @db.Text
+  tomorrowAdjust String? @db.Text
+  mood        Int?     // 1-5 overall day rating
+  energyLevel Int?     // 1-5 teaching energy
+  tags        String[] // flexible tagging: "good-day", "meltdown", "breakthrough"
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author      User     @relation("ReflectionAuthor", fields: [authorId], references: [id])
+  child       Child?   @relation(fields: [childId], references: [id])
+
+  @@index([date])
+  @@index([authorId, date])
+}
+
+// ============================================================================
+// PLANNER STATE — JSON blob for UI state (week checks, prep checklist)
+// ============================================================================
+// Why JSONB: this is ephemeral UI state, not analytical data. The artifact
+// shape works; we just need persistence. Single row, family-wide.
+model PlannerState {
+  id        String   @id @default("default")
+  state     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?  // user email for last-writer audit
+}
+
+// ============================================================================
+// NOTES — free-form notes (Phase 1)
+// ============================================================================
+
+model Note {
+  id          String   @id @default(cuid())
+  authorId    String
+  scope       String   // "global" | "term:summer-2026" | "child:abc123"
+  content     String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@index([scope])
+}
+
+// ============================================================================
+// AUDIT LOG — every meaningful change tracked
+// ============================================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String   // "lesson.create", "reflection.update", "state.replace"
+  entityType  String   // "Lesson", "Reflection", "PlannerState", etc.
+  entityId    String?
+  payload     Json?    // snapshot of change
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}
+
+// ============================================================================
+// OREGON COMPLIANCE — TEST RECORDS
+// ============================================================================
+// Oregon requires testing at grades 3, 5, 8, 10 (ITBS, SAT-10, or Terra Nova/CAT)
+// administered by a qualified non-family proctor. 15th percentile minimum.
+// We track these so you have a clean defensible record.
+model TestRecord {
+  id              String   @id @default(cuid())
+  childId         String
+  testDate        DateTime
+  testType        String   // "ITBS" | "SAT-10" | "TerraNova"
+  gradeLevel      String   // "3", "5", "8", "10"
+  proctor         String   // name of qualified neutral proctor
+  proctorContact  String?
+  compositeScore  Int?     // overall percentile
+  scoreReportUrl  String?  // Phase 2: link to PDF in Vercel Blob
+  passedThreshold Boolean  // >= 15th percentile
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  child           Child    @relation(fields: [childId], references: [id])
+
+  @@index([childId, testDate])
+}
+
+// ============================================================================
+// CURRICULUM LIBRARY (V2 — schema in place, content added later)
+// ============================================================================
+// Recommended experiments, history lessons, books, videos with links.
+// Designed so you can curate over time and recommendations surface based on
+// current term's science/history theme.
+model CurriculumResource {
+  id          String   @id @default(cuid())
+  type        ResourceType
+  title       String
+  description String?  @db.Text
+  url         String?
+  ageRange    String?  // "5-7", "all", "8+"
+  subject     Subject
+  tags        String[]
+  termIds     String[] // which terms this resource fits
+  materials   String[] // what you need to do it
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum ResourceType {
+  EXPERIMENT
+  BOOK
+  ARTICLE
+  VIDEO
+  PROJECT
+  WORKSHEET
+  FIELD_TRIP
+  OTHER
+}
