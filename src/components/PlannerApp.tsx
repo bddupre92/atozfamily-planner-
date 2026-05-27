@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { LibraryTab } from './library/LibraryTab';
 import { SuggestionsTab } from './suggestions/SuggestionsTab';
+import { SuggestionFAB } from './suggestions/SuggestionFAB';
 
 // ============================================================================
 // TYPES
@@ -166,6 +167,7 @@ export function PlannerApp({ session, initialState, childrenList, terms, termPro
         {activeTab === 'library' && <LibraryTab termIds={terms.map((t: any) => t.id)} />}
         {activeTab === 'suggestions' && <SuggestionsTab />}
       </main>
+      <SuggestionFAB />
     </div>
   );
 }
