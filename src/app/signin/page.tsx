@@ -1,10 +1,27 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 export default function SignInPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-cream px-6">
+          <div className="w-full max-w-md bg-paper border border-rule rounded-xl p-8 shadow-sm">
+            <div className="font-display text-2xl font-semibold mb-2">atozfamily planner</div>
+            <div className="font-body text-sm text-ink-muted">Loading…</div>
+          </div>
+        </div>
+      }
+    >
+      <SignInContent />
+    </Suspense>
+  );
+}
+
+function SignInContent() {
   const params = useSearchParams();
   const isVerify = params.get('verify') === '1';
   const callbackUrl = params.get('callbackUrl') ?? '/planner';
