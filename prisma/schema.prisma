@@ -32,12 +32,13 @@ model User {
   image         String?
   createdAt     DateTime  @default(now())
 
-  accounts          Account[]
-  sessions          Session[]
-  reflections       Reflection[]      @relation("ReflectionAuthor")
-  lessons           Lesson[]          @relation("LessonRecorder")
-  auditLogs         AuditLog[]
-  notes             Note[]
+  accounts    Account[]
+  sessions    Session[]
+  reflections Reflection[] @relation("ReflectionAuthor")
+  lessons     Lesson[]     @relation("LessonRecorder")
+  auditLogs   AuditLog[]
+  notes       Note[]
+  suggestions Suggestion[]
 }
 
 model Account {
@@ -79,51 +80,53 @@ model VerificationToken {
 // ============================================================================
 
 model Child {
-  id          String   @id @default(cuid())
-  name        String
-  age         String   // "7", "4-5", "2" — kept as string for flexibility
-  grade       String   // "2nd", "Pre-K / K", "Tot"
-  birthDate   DateTime?
-  colorKey    String   // "terracotta" | "sage" | "lavender" — for UI theming
-  sortOrder   Int      @default(0)
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  id        String    @id @default(cuid())
+  name      String
+  age       String // "7", "4-5", "2" — kept as string for flexibility
+  grade     String // "2nd", "Pre-K / K", "Tot"
+  birthDate DateTime?
+  colorKey  String // "terracotta" | "sage" | "lavender" — for UI theming
+  sortOrder Int       @default(0)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  lessons       Lesson[]
-  reflections   Reflection[]
-  termProgress  TermProgress[]
-  testRecords   TestRecord[]
+  lessons             Lesson[]
+  reflections         Reflection[]
+  termProgress        TermProgress[]
+  testRecords         TestRecord[]
+  sequenceAssignments SequenceAssignment[]
 }
 
 model Term {
-  id          String   @id  // "summer-2026", "fall-2026", etc.
-  name        String
-  season      String   // "summer" | "fall" | "spring"
-  startDate   DateTime
-  endDate     DateTime
-  weeks       Int
-  theme       String   @db.Text
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id // "summer-2026", "fall-2026", etc.
+  name      String
+  season    String // "summer" | "fall" | "spring"
+  startDate DateTime
+  endDate   DateTime
+  weeks     Int
+  theme     String   @db.Text
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  progress    TermProgress[]
-  lessons     Lesson[]
+  progress     TermProgress[]
+  lessons      Lesson[]
+  weeklyTopics WeeklyTopic[]
 }
 
 model TermProgress {
-  id                String   @id @default(cuid())
-  termId            String
-  childId           String
-  lessonsComplete   Int      @default(0)
-  notes             String?  @db.Text
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String   @id @default(cuid())
+  termId          String
+  childId         String
+  lessonsComplete Int      @default(0)
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  term              Term     @relation(fields: [termId], references: [id])
-  child             Child    @relation(fields: [childId], references: [id])
+  term  Term  @relation(fields: [termId], references: [id])
+  child Child @relation(fields: [childId], references: [id])
 
   @@unique([termId, childId])
 }
@@ -132,28 +135,28 @@ model TermProgress {
 // tracking entity. Every "I did LOE Foundations C Lesson 12 with Eldest today"
 // creates one of these.
 model Lesson {
-  id          String      @id @default(cuid())
-  childId     String
-  recorderId  String      // which parent logged it
-  termId      String?     // computed from date but stored for fast queries
+  id         String  @id @default(cuid())
+  childId    String
+  recorderId String // which parent logged it
+  termId     String? // computed from date but stored for fast queries
 
-  subject     Subject     // ENGLISH | MATH | SCIENCE | HISTORY | OTHER
-  curriculum  String      // e.g. "LOE Foundations C", "Singapore Math 2A"
-  lessonRef   String      // e.g. "Lesson 12", "Chapter 3", "Unit 2.4"
-  topic       String?     // free-text: "Phonogram /sh/", "Subtraction with borrowing"
+  subject    Subject // ENGLISH | MATH | SCIENCE | HISTORY | OTHER
+  curriculum String // e.g. "LOE Foundations C", "Singapore Math 2A"
+  lessonRef  String // e.g. "Lesson 12", "Chapter 3", "Unit 2.4"
+  topic      String? // free-text: "Phonogram /sh/", "Subtraction with borrowing"
 
-  date        DateTime    // when the lesson actually happened
-  durationMin Int?        // optional: how long it took
+  date        DateTime // when the lesson actually happened
+  durationMin Int? // optional: how long it took
   status      LessonStatus @default(COMPLETED)
-  difficulty  Int?        // 1-5: how hard was this for the child today
-  notes       String?     @db.Text
+  difficulty  Int? // 1-5: how hard was this for the child today
+  notes       String?      @db.Text
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  child       Child       @relation(fields: [childId], references: [id])
-  recorder    User        @relation("LessonRecorder", fields: [recorderId], references: [id])
-  term        Term?       @relation(fields: [termId], references: [id])
+  child    Child @relation(fields: [childId], references: [id])
+  recorder User  @relation("LessonRecorder", fields: [recorderId], references: [id])
+  term     Term? @relation(fields: [termId], references: [id])
 
   @@index([childId, date])
   @@index([date])
@@ -173,7 +176,7 @@ enum Subject {
 enum LessonStatus {
   COMPLETED
   PARTIAL
-  ABANDONED  // started but bad day — Oregon defense: still counts as instruction time
+  ABANDONED // started but bad day — Oregon defense: still counts as instruction time
 }
 
 // ============================================================================
@@ -181,23 +184,23 @@ enum LessonStatus {
 // ============================================================================
 
 model Reflection {
-  id          String   @id @default(cuid())
-  authorId    String
-  childId     String?  // null = whole-family reflection
-  date        DateTime @db.Date
+  id       String   @id @default(cuid())
+  authorId String
+  childId  String? // null = whole-family reflection
+  date     DateTime @db.Date
 
-  whatWorked  String?  @db.Text
-  whatDidnt   String?  @db.Text
-  tomorrowAdjust String? @db.Text
-  mood        Int?     // 1-5 overall day rating
-  energyLevel Int?     // 1-5 teaching energy
-  tags        String[] // flexible tagging: "good-day", "meltdown", "breakthrough"
+  whatWorked     String?  @db.Text
+  whatDidnt      String?  @db.Text
+  tomorrowAdjust String?  @db.Text
+  mood           Int? // 1-5 overall day rating
+  energyLevel    Int? // 1-5 teaching energy
+  tags           String[] // flexible tagging: "good-day", "meltdown", "breakthrough"
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  author      User     @relation("ReflectionAuthor", fields: [authorId], references: [id])
-  child       Child?   @relation(fields: [childId], references: [id])
+  author User   @relation("ReflectionAuthor", fields: [authorId], references: [id])
+  child  Child? @relation(fields: [childId], references: [id])
 
   @@index([date])
   @@index([authorId, date])
@@ -212,7 +215,7 @@ model PlannerState {
   id        String   @id @default("default")
   state     Json
   updatedAt DateTime @updatedAt
-  updatedBy String?  // user email for last-writer audit
+  updatedBy String? // user email for last-writer audit
 }
 
 // ============================================================================
@@ -220,14 +223,14 @@ model PlannerState {
 // ============================================================================
 
 model Note {
-  id          String   @id @default(cuid())
-  authorId    String
-  scope       String   // "global" | "term:summer-2026" | "child:abc123"
-  content     String   @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  authorId  String
+  scope     String // "global" | "term:summer-2026" | "child:abc123"
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  author      User     @relation(fields: [authorId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
 
   @@index([scope])
 }
@@ -237,17 +240,17 @@ model Note {
 // ============================================================================
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  action      String   // "lesson.create", "reflection.update", "state.replace"
-  entityType  String   // "Lesson", "Reflection", "PlannerState", etc.
-  entityId    String?
-  payload     Json?    // snapshot of change
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String // "lesson.create", "reflection.update", "state.replace"
+  entityType String // "Lesson", "Reflection", "PlannerState", etc.
+  entityId   String?
+  payload    Json? // snapshot of change
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
 
-  user        User?    @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
   @@index([createdAt])
   @@index([entityType, entityId])
@@ -263,17 +266,17 @@ model TestRecord {
   id              String   @id @default(cuid())
   childId         String
   testDate        DateTime
-  testType        String   // "ITBS" | "SAT-10" | "TerraNova"
-  gradeLevel      String   // "3", "5", "8", "10"
-  proctor         String   // name of qualified neutral proctor
+  testType        String // "ITBS" | "SAT-10" | "TerraNova"
+  gradeLevel      String // "3", "5", "8", "10"
+  proctor         String // name of qualified neutral proctor
   proctorContact  String?
-  compositeScore  Int?     // overall percentile
-  scoreReportUrl  String?  // Phase 2: link to PDF in Vercel Blob
-  passedThreshold Boolean  // >= 15th percentile
+  compositeScore  Int? // overall percentile
+  scoreReportUrl  String? // Phase 2: link to PDF in Vercel Blob
+  passedThreshold Boolean // >= 15th percentile
   notes           String?  @db.Text
   createdAt       DateTime @default(now())
 
-  child           Child    @relation(fields: [childId], references: [id])
+  child Child @relation(fields: [childId], references: [id])
 
   @@index([childId, testDate])
 }
@@ -285,19 +288,36 @@ model TestRecord {
 // Designed so you can curate over time and recommendations surface based on
 // current term's science/history theme.
 model CurriculumResource {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   type        ResourceType
   title       String
-  description String?  @db.Text
+  description String?      @db.Text
   url         String?
-  ageRange    String?  // "5-7", "all", "8+"
+  ageRange    String?
   subject     Subject
   tags        String[]
-  termIds     String[] // which terms this resource fits
-  materials   String[] // what you need to do it
-  notes       String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  termIds     String[]
+  materials   String[]
+  notes       String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // PR1 additions
+  framework         String? // "Mystery Science" | "OHC" | "SOTW Vol 1" | "BYL Level 0"
+  weekHint          Int? // suggested week-of-term (1-10 for summer, etc.)
+  season            String? // "summer" | "fall" | "spring" | "any"
+  activities        Json? // { tier7: {...}, tier4: {...} }
+  bookList          String[]  @default([])
+  videoUrl          String?
+  fieldTripLocation String?
+  sourceUrl         String?
+  active            Boolean   @default(true)
+  deletedAt         DateTime?
+
+  weeklyTopics WeeklyTopic[]
+
+  @@index([subject, season])
+  @@index([framework])
 }
 
 enum ResourceType {
@@ -309,4 +329,108 @@ enum ResourceType {
   WORKSHEET
   FIELD_TRIP
   OTHER
+}
+
+// ============================================================================
+// CURRICULUM SEQUENCES — digitized scope-and-sequence for Singapore Math,
+// LOE Foundations, etc. Lets us track where each child is in a sequence.
+// ============================================================================
+
+model CurriculumSequence {
+  id          String   @id
+  name        String
+  publisher   String
+  subject     Subject
+  ageRangeMin Int
+  ageRangeMax Int
+  sourceUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entries     SequenceEntry[]
+  assignments SequenceAssignment[]
+}
+
+model SequenceEntry {
+  id               String  @id @default(cuid())
+  sequenceId       String
+  orderIndex       Int
+  unit             String
+  lessonRef        String
+  topic            String
+  estimatedMinutes Int?
+  isReview         Boolean @default(false)
+
+  sequence CurriculumSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@unique([sequenceId, orderIndex])
+  @@index([sequenceId, orderIndex])
+}
+
+model SequenceAssignment {
+  id             String    @id @default(cuid())
+  childId        String
+  sequenceId     String
+  currentEntryId String?
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  child    Child              @relation(fields: [childId], references: [id])
+  sequence CurriculumSequence @relation(fields: [sequenceId], references: [id])
+
+  @@unique([childId, sequenceId])
+  @@index([sequenceId])
+}
+
+// ============================================================================
+// WEEKLY TOPICS — maps a term-week-subject to a chosen CurriculumResource
+// ============================================================================
+
+model WeeklyTopic {
+  id         String   @id @default(cuid())
+  termId     String
+  weekNumber Int
+  subject    Subject
+  resourceId String
+  notes      String?  @db.Text
+  selectedBy String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  term     Term               @relation(fields: [termId], references: [id])
+  resource CurriculumResource @relation(fields: [resourceId], references: [id])
+
+  @@unique([termId, weekNumber, subject])
+  @@index([termId, weekNumber])
+  @@index([resourceId])
+}
+
+// ============================================================================
+// SUGGESTIONS — community / family feature requests
+// ============================================================================
+
+model Suggestion {
+  id         String           @id @default(cuid())
+  authorId   String
+  title      String
+  body       String           @db.Text
+  category   String?
+  status     SuggestionStatus @default(PROPOSED)
+  upvotes    Int              @default(0)
+  ghIssueUrl String?
+  ghPrUrl    String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([status, createdAt])
+}
+
+enum SuggestionStatus {
+  PROPOSED
+  TRIAGED
+  IN_PROGRESS
+  DONE
+  WONT_DO
 }

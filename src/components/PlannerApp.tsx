@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 import {
   Calendar, BookOpen, Target, FileText, NotebookPen, History, LogOut,
-  Check, Plus, Trash2, Printer,
+  Check, Plus, Trash2, Printer, BookMarked, Lightbulb,
 } from 'lucide-react';
+import { LibraryTab } from './library/LibraryTab';
+import { SuggestionsTab } from './suggestions/SuggestionsTab';
 
 // ============================================================================
 // TYPES
@@ -84,7 +86,7 @@ type Props = {
 };
 
 export function PlannerApp({ session, initialState, childrenList, terms, termProgress: tp0, recentLessons: rl0, recentReflections: rr0 }: Props) {
-  const [activeTab, setActiveTab] = useState<'week' | 'year' | 'lessons' | 'reflections' | 'progress' | 'audit' | 'notes'>('week');
+  const [activeTab, setActiveTab] = useState<'week' | 'year' | 'lessons' | 'reflections' | 'progress' | 'audit' | 'notes' | 'library' | 'suggestions'>('week');
   const [state, setState] = useState<any>(initialState ?? { weekState: { prep: {}, daily: {} }, selectedTermId: 'summer-2026' });
   const [termProgress, setTermProgress] = useState(tp0);
   const [lessons, setLessons] = useState(rl0);
@@ -135,6 +137,8 @@ export function PlannerApp({ session, initialState, childrenList, terms, termPro
             ['progress', 'Progress', Target],
             ['audit', 'Audit Log', History],
             ['notes', 'Notes', FileText],
+            ['library', 'Library', BookMarked],
+            ['suggestions', 'Suggestions', Lightbulb],
           ] as const).map(([id, label, Icon]) => (
             <button
               key={id}
@@ -159,6 +163,8 @@ export function PlannerApp({ session, initialState, childrenList, terms, termPro
         {activeTab === 'progress' && <ProgressTab childrenList={childrenList} terms={terms} termProgress={termProgress} lessons={lessons} />}
         {activeTab === 'audit' && <AuditTab />}
         {activeTab === 'notes' && <NotesTab state={state} setState={setState} />}
+        {activeTab === 'library' && <LibraryTab termIds={terms.map((t: any) => t.id)} />}
+        {activeTab === 'suggestions' && <SuggestionsTab />}
       </main>
     </div>
   );
