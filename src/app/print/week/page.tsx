@@ -2,6 +2,9 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 
+// Auth + DB at request time — never prerender.
+export const dynamic = 'force-dynamic';
+
 const DAILY_BLOCKS = [
   { time: '8:30–9:00', label: 'Morning Anchor', detail: 'Calendar · weather · read-aloud' },
   { time: '9:00–9:30', label: 'English Block 1', detail: 'Eldest 1:1 · Middle quiet activity · Youngest play' },

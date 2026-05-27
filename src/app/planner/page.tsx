@@ -3,6 +3,9 @@ import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { PlannerApp } from '@/components/PlannerApp';
 
+// Auth + DB at request time — never prerender.
+export const dynamic = 'force-dynamic';
+
 export default async function PlannerPage() {
   const session = await auth();
   if (!session?.user?.email) redirect('/signin?callbackUrl=/planner');

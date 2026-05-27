@@ -12,11 +12,48 @@ const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS ?? '')
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
+// ─────────────────────────────────────────────────────────────────────────
+// AUTH BYPASS — temporary kill-switch.
+// When AUTH_BYPASS=true, the in-app NextAuth login is skipped and every
+// request is treated as authenticated as a single shared "Family" user.
+// Pair this with Vercel Password Protection at the gateway so the site
+// itself is not publicly readable.
+// To re-enable real auth: remove AUTH_BYPASS env var, redeploy.
+// ─────────────────────────────────────────────────────────────────────────
+const AUTH_BYPASS = process.env.AUTH_BYPASS === 'true';
+const DEFAULT_USER_EMAIL = 'family@atozfamily.org';
+const DEFAULT_USER_NAME = 'Family';
+let cachedDefaultUserId: string | null = null;
+
+async function getOrCreateDefaultUser() {
+  if (cachedDefaultUserId) return cachedDefaultUserId;
+  // 1) Fast path: user already exists (most common after the first call).
+  let u = await prisma.user.findUnique({ where: { email: DEFAULT_USER_EMAIL } });
+  if (!u) {
+    // 2) Create it; tolerate concurrent prerender races where another worker
+    //    beats us to the INSERT (P2002 = unique constraint on email).
+    try {
+      u = await prisma.user.create({
+        data: { email: DEFAULT_USER_EMAIL, name: DEFAULT_USER_NAME, emailVerified: new Date() },
+      });
+    } catch (e: unknown) {
+      u = await prisma.user.findUnique({ where: { email: DEFAULT_USER_EMAIL } });
+      if (!u) throw e;
+    }
+  }
+  cachedDefaultUserId = u.id;
+  return u.id;
+}
+
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const nextAuthExports = NextAuth({
   adapter: PrismaAdapter(prisma),
-  session: { strategy: 'database' },
+  // JWT strategy required: middleware runs on Edge runtime and cannot execute
+  // Prisma queries to validate database-backed sessions. JWTs verify in the
+  // cookie without a DB round-trip. The PrismaAdapter still persists User and
+  // VerificationToken rows (used by Resend magic-link callback in API routes).
+  session: { strategy: 'jwt' },
   trustHost: true,
   pages: {
     signIn: '/signin',
@@ -71,11 +108,53 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
+    async jwt({ token, user }) {
+      // On initial sign-in `user` is populated from the adapter; persist its id
+      // into the token so subsequent middleware/server calls can read it.
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && token?.id) {
+        session.user.id = token.id as string;
       }
       return session;
     },
   },
 });
+
+export const { handlers, signIn, signOut } = nextAuthExports;
+
+// Wrap auth() so AUTH_BYPASS short-circuits the no-args session lookup with
+// a synthetic Family session. Wrapper-mode calls (middleware/api handler) are
+// also short-circuited so the middleware doesn't redirect to /signin.
+const realAuth = nextAuthExports.auth;
+
+function bypassSession() {
+  return getOrCreateDefaultUser().then((id) => ({
+    user: { id, email: DEFAULT_USER_EMAIL, name: DEFAULT_USER_NAME },
+    expires: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString(),
+  }));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const auth: typeof realAuth = (((...args: any[]) => {
+  if (AUTH_BYPASS) {
+    // No-args call: return synthetic session
+    if (args.length === 0) return bypassSession();
+    // Middleware/route-wrapper: short-circuit to a pass-through handler
+    const handler = args[0];
+    if (typeof handler === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return async (req: any, ctx: any) => {
+        req.auth = await bypassSession();
+        return handler(req, ctx);
+      };
+    }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (realAuth as any)(...args);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+}) as any);
