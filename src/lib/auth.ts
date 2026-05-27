@@ -20,7 +20,10 @@ const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS ?? '')
 // itself is not publicly readable.
 // To re-enable real auth: remove AUTH_BYPASS env var, redeploy.
 // ─────────────────────────────────────────────────────────────────────────
-const AUTH_BYPASS = process.env.AUTH_BYPASS === 'true';
+// Tolerate quoting/casing variants ("true", `true`, "True") since values
+// pasted from .env files sometimes carry literal quotes through dashboards.
+const _RAW_AUTH_BYPASS = (process.env.AUTH_BYPASS ?? '').trim().replace(/^"|"$/g, '').toLowerCase();
+const AUTH_BYPASS = _RAW_AUTH_BYPASS === 'true' || _RAW_AUTH_BYPASS === '1';
 const DEFAULT_USER_EMAIL = 'family@atozfamily.org';
 const DEFAULT_USER_NAME = 'Family';
 let cachedDefaultUserId: string | null = null;
