@@ -1,4 +1,10 @@
 import { PrismaClient } from '@prisma/client';
+import { seedDimensionsMath } from './seeds/dimensions-math';
+import { seedLogicOfEnglish } from './seeds/loe-foundations';
+import { seedMysteryScience } from './seeds/mystery-science';
+import { seedOutdoorHourChallenge } from './seeds/outdoor-hour-challenge';
+import { seedStoryOfTheWorldV1 } from './seeds/story-of-the-world-v1';
+import { seedBuildYourLibraryL0 } from './seeds/build-your-library-l0';
 
 const prisma = new PrismaClient();
 
@@ -110,6 +116,17 @@ async function main() {
     create: { id: 'default', state: initialState },
   });
   console.log('  ✓ Initial planner state seeded');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CURRICULUM LIBRARY
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\n📚 Curriculum library seeding...');
+  await seedDimensionsMath(prisma);
+  await seedLogicOfEnglish(prisma);
+  await seedMysteryScience(prisma);
+  await seedOutdoorHourChallenge(prisma);
+  await seedStoryOfTheWorldV1(prisma);
+  await seedBuildYourLibraryL0(prisma);
 
   console.log('✅ Seeding complete.');
 }
