@@ -82,6 +82,26 @@ Schema is in place for all of these; UI/routes to build.
 
 ## Phase 3 — LATER (V2 — curriculum library)
 
+### Phase 3a — SHIPPED (PR 1 of curriculum library)
+
+The "browse + capture" half:
+
+- ✅ Schema: `CurriculumResource` extended; `CurriculumSequence` + `SequenceEntry` + `SequenceAssignment` + `WeeklyTopic` + `Suggestion` added.
+- ✅ Seed: Singapore Dimensions Math (KA/KB/2A/2B, 243 entries), LOE Foundations (A/B/C/D, 192 entries), Mystery Science K-2 (34), Outdoor Hour Challenge PNW (35), Story of the World Vol 1 (42), Build Your Library Level 0 (33). ~579 records total.
+- ✅ Library tab — browse + filter (subject, framework, season, term, search). Detail drawer with tier-7 / tier-4 activity split, book list, field-trip location, source link.
+- ✅ Suggestions tab — form, grouped list (Proposed/Triaged/In progress/Done/Won't do), upvote.
+- ✅ `scripts/sync-suggestions.ts` — manual `gh`-CLI bridge from PROPOSED suggestions to GitHub issues.
+
+Spec: [`superpowers/specs/2026-05-26-curriculum-library-and-suggestions-design.md`](superpowers/specs/2026-05-26-curriculum-library-and-suggestions-design.md)
+
+Plan: [`superpowers/plans/2026-05-26-curriculum-library-pr1.md`](superpowers/plans/2026-05-26-curriculum-library-pr1.md)
+
+PR 2 ("picker + per-child next-lesson surfacing") to follow.
+
+---
+
+### Original vision (for PR 2 and beyond)
+
 The vision: when you're planning the science block for the week and it's "Pacific Northwest Naturalists" theme, the planner shows you 5 hands-on experiments with materials lists (some "buy at Fred Meyer," some "find in your kitchen"), 8 picture books with library availability checks, 3 video lessons, and 2 nearby field trip options — all curated to the current term's theme.
 
 ### Schema is already in place
