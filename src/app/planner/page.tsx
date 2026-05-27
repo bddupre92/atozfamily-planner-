@@ -30,8 +30,8 @@ export default async function PlannerPage() {
       session={{ email: session.user.email!, name: session.user.name ?? null }}
       initialState={state?.state ?? null}
       childrenList={childrenList}
-      terms={terms}
-      termProgress={termProgress}
+      terms={JSON.parse(JSON.stringify(terms))}
+      termProgress={JSON.parse(JSON.stringify(termProgress))}
       recentLessons={JSON.parse(JSON.stringify(recentLessons))}
       recentReflections={JSON.parse(JSON.stringify(recentReflections))}
     />
