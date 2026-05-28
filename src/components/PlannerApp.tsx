@@ -11,6 +11,7 @@ import { SuggestionsTab } from './suggestions/SuggestionsTab';
 import { SuggestionFAB } from './suggestions/SuggestionFAB';
 import { WeeklyTopicPicker } from './library/WeeklyTopicPicker';
 import { ResourceDetailDrawer } from './library/ResourceDetailDrawer';
+import { LessonPhotos } from './lessons/LessonPhotos';
 import type { ResourceFull } from '@/lib/types/library';
 import { NextLessonCard, type SequenceProgressRow } from './library/NextLessonCard';
 import { currentOrUpcomingTerm, currentWeekOfTerm } from '@/lib/week';
@@ -570,26 +571,31 @@ function LessonsTab({ childrenList, lessons, setLessons }: any) {
         {lessons.map((lesson: Lesson) => {
           const colors = COLOR_MAP[lesson.child?.colorKey ?? 'terracotta'] ?? COLOR_MAP.terracotta;
           return (
-            <div key={lesson.id} className="bg-cream border border-rule rounded-lg p-4 flex items-center gap-4">
-              <div className="w-1 self-stretch rounded" style={{ background: colors.swatch }} />
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.swatch }}>
-                    {lesson.child?.name ?? 'Child'}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 bg-paper rounded text-ink-muted font-semibold uppercase tracking-wider">{lesson.subject}</span>
-                  <span className="text-xs text-ink-muted">{new Date(lesson.date).toLocaleDateString()}</span>
+            <div key={lesson.id} className="bg-cream border border-rule rounded-lg p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-1 self-stretch rounded" style={{ background: colors.swatch }} />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.swatch }}>
+                      {lesson.child?.name ?? 'Child'}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-paper rounded text-ink-muted font-semibold uppercase tracking-wider">{lesson.subject}</span>
+                    <span className="text-xs text-ink-muted">{new Date(lesson.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className="font-display text-base font-semibold mt-1">{lesson.curriculum} · {lesson.lessonRef}</div>
+                  {lesson.topic && <div className="text-sm text-ink-soft">{lesson.topic}</div>}
+                  {lesson.notes && <div className="text-xs text-ink-muted italic mt-1">{lesson.notes}</div>}
                 </div>
-                <div className="font-display text-base font-semibold mt-1">{lesson.curriculum} · {lesson.lessonRef}</div>
-                {lesson.topic && <div className="text-sm text-ink-soft">{lesson.topic}</div>}
-                {lesson.notes && <div className="text-xs text-ink-muted italic mt-1">{lesson.notes}</div>}
+                <button onClick={async () => {
+                  await fetch(`/api/lessons?id=${lesson.id}`, { method: 'DELETE' });
+                  setLessons(lessons.filter((l: Lesson) => l.id !== lesson.id));
+                }} className="text-ink-muted hover:text-red-700">
+                  <Trash2 size={14} />
+                </button>
               </div>
-              <button onClick={async () => {
-                await fetch(`/api/lessons?id=${lesson.id}`, { method: 'DELETE' });
-                setLessons(lessons.filter((l: Lesson) => l.id !== lesson.id));
-              }} className="text-ink-muted hover:text-red-700">
-                <Trash2 size={14} />
-              </button>
+              <div className="pl-5 mt-2">
+                <LessonPhotos lessonId={lesson.id} />
+              </div>
             </div>
           );
         })}
