@@ -1,6 +1,17 @@
 'use client';
-import { X, ExternalLink, MapPin, BookOpen } from 'lucide-react';
+import { X, ExternalLink, MapPin, BookOpen, Library } from 'lucide-react';
 import type { ResourceFull } from '@/lib/types/library';
+
+const LIBRARIES = [
+  { label: 'WCCLS', host: 'https://wccls.bibliocommons.com/v2/search' },
+  { label: 'Multnomah', host: 'https://multcolib.bibliocommons.com/v2/search' },
+];
+
+function libSearchUrl(host: string, title: string): string {
+  // BiblioCommons search: ?query=<encoded>&searchType=keyword
+  const q = encodeURIComponent(title);
+  return `${host}?query=${q}&searchType=keyword`;
+}
 
 export function ResourceDetailDrawer({ resource, onClose }: { resource: ResourceFull | null; onClose: () => void }) {
   if (!resource) return null;
@@ -46,9 +57,28 @@ export function ResourceDetailDrawer({ resource, onClose }: { resource: Resource
         {resource.bookList?.length > 0 && (
           <section className="mb-4">
             <div className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-1">Books</div>
-            <ul className="text-sm space-y-1">
+            <ul className="text-sm space-y-2">
               {resource.bookList.map((b, i) => (
-                <li key={i} className="flex items-start gap-2"><BookOpen size={12} className="mt-1 flex-shrink-0 text-ink-muted" />{b}</li>
+                <li key={i} className="bg-paper border border-rule rounded p-2">
+                  <div className="flex items-start gap-2">
+                    <BookOpen size={12} className="mt-1 flex-shrink-0 text-ink-muted" />
+                    <span className="flex-1">{b}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5 pl-5">
+                    {LIBRARIES.map((lib) => (
+                      <a
+                        key={lib.label}
+                        href={libSearchUrl(lib.host, b)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-rule text-ink-soft hover:bg-cream"
+                      >
+                        <Library size={9} /> {lib.label}
+                        <ExternalLink size={8} />
+                      </a>
+                    ))}
+                  </div>
+                </li>
               ))}
             </ul>
           </section>

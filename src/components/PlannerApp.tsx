@@ -11,6 +11,7 @@ import { SuggestionsTab } from './suggestions/SuggestionsTab';
 import { SuggestionFAB } from './suggestions/SuggestionFAB';
 import { WeeklyTopicPicker } from './library/WeeklyTopicPicker';
 import { ResourceDetailDrawer } from './library/ResourceDetailDrawer';
+import { LessonPhotos } from './lessons/LessonPhotos';
 import type { ResourceFull } from '@/lib/types/library';
 import { NextLessonCard, type SequenceProgressRow } from './library/NextLessonCard';
 import { currentOrUpcomingTerm, currentWeekOfTerm } from '@/lib/week';
@@ -425,6 +426,17 @@ function ScheduleRow({ block, blockIdx, days, childrenList, dayChecks, onToggle 
   // Map UI assignment keys to actual child IDs by sortOrder
   const childKeys = ['eldest', 'middle', 'youngest'];
 
+  // For non-instruction blocks (Morning Anchor, Snack, Family Content, Closing
+  // Read-Aloud), every kid is doing the same thing — so the per-child label
+  // is the block's `detail` text. This unifies the row layout so every block
+  // shows the same child-card grid + per-child day checkboxes.
+  function getAssignment(i: number): string | undefined {
+    if (isInstruction) {
+      return block.assignments?.[childKeys[i]];
+    }
+    return block.detail;
+  }
+
   return (
     <div className="bg-cream border border-rule rounded-lg p-4 mb-2.5">
       <div className="flex items-start gap-4 mb-3">
@@ -433,70 +445,45 @@ function ScheduleRow({ block, blockIdx, days, childrenList, dayChecks, onToggle 
           <div className="font-display text-base font-semibold mt-0.5">{block.label}</div>
         </div>
         <div className="flex-1">
-          {!isInstruction && <div className="text-sm text-ink-soft pt-1">{block.detail}</div>}
-          {isInstruction && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {childrenList.map((child: Child, i: number) => {
+              const colors = COLOR_MAP[child.colorKey] ?? COLOR_MAP.terracotta;
+              const assignment = getAssignment(i);
+              if (!assignment) return null;
+              return (
+                <div key={child.id} className="rounded px-2.5 py-1.5"
+                  style={{ background: colors.soft, borderColor: colors.swatch + '33', borderWidth: 1 }}>
+                  <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5"
+                    style={{ color: colors.swatch }}>{child.name} · age {child.age}</div>
+                  <div className="text-xs font-semibold text-ink">{assignment}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-4 pl-32 items-center">
+        <div className="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">This Week</div>
+        {days.map((day: string) => (
+          <div key={day} className="flex items-center gap-1.5">
+            <span className="text-[10px] text-ink-muted font-medium w-6">{day}</span>
+            <div className="flex gap-1">
               {childrenList.map((child: Child, i: number) => {
-                const colors = COLOR_MAP[child.colorKey] ?? COLOR_MAP.terracotta;
-                const assignmentKey = childKeys[i];
-                const assignment = block.assignments?.[assignmentKey];
+                const assignment = getAssignment(i);
                 if (!assignment) return null;
+                const colors = COLOR_MAP[child.colorKey] ?? COLOR_MAP.terracotta;
+                const checked = !!dayChecks?.[day]?.[blockIdx]?.[child.id];
                 return (
-                  <div key={child.id} className="rounded px-2.5 py-1.5"
-                    style={{ background: colors.soft, borderColor: colors.swatch + '33', borderWidth: 1 }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5"
-                      style={{ color: colors.swatch }}>{child.name} · age {child.age}</div>
-                    <div className="text-xs font-semibold text-ink">{assignment}</div>
-                  </div>
+                  <button key={child.id} onClick={() => onToggle(day, blockIdx, child.id)}
+                    title={`${child.name}: ${assignment}`}
+                    className="w-4 h-4 rounded border-2 transition hover:scale-110"
+                    style={{ borderColor: colors.swatch, background: checked ? colors.swatch : 'transparent' }} />
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        ))}
       </div>
-      {isInstruction && (
-        <div className="flex gap-4 pl-32 items-center">
-          <div className="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">This Week</div>
-          {days.map((day: string) => (
-            <div key={day} className="flex items-center gap-1.5">
-              <span className="text-[10px] text-ink-muted font-medium w-6">{day}</span>
-              <div className="flex gap-1">
-                {childrenList.map((child: Child, i: number) => {
-                  const assignmentKey = childKeys[i];
-                  if (!block.assignments?.[assignmentKey]) return null;
-                  const colors = COLOR_MAP[child.colorKey] ?? COLOR_MAP.terracotta;
-                  const checked = dayChecks?.[day]?.[blockIdx]?.[child.id];
-                  return (
-                    <button key={child.id} onClick={() => onToggle(day, blockIdx, child.id)}
-                      title={`${child.name}: ${block.assignments[assignmentKey]}`}
-                      className="w-4 h-4 rounded border-2 transition hover:scale-110"
-                      style={{ borderColor: colors.swatch, background: checked ? colors.swatch : 'transparent' }} />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {!isInstruction && (
-        <div className="flex gap-4 pl-32 items-center">
-          <div className="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">This Week</div>
-          {days.map((day: string) => {
-            const checked = !!dayChecks?.[day]?.[blockIdx]?._all;
-            return (
-              <div key={day} className="flex items-center gap-1.5">
-                <span className="text-[10px] text-ink-muted font-medium w-6">{day}</span>
-                <button
-                  onClick={() => onToggle(day, blockIdx, '_all')}
-                  title={`Mark ${block.label} done for ${day}`}
-                  className="w-4 h-4 rounded border-2 transition hover:scale-110"
-                  style={{ borderColor: '#8A7A60', background: checked ? '#8A7A60' : 'transparent' }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
@@ -584,26 +571,31 @@ function LessonsTab({ childrenList, lessons, setLessons }: any) {
         {lessons.map((lesson: Lesson) => {
           const colors = COLOR_MAP[lesson.child?.colorKey ?? 'terracotta'] ?? COLOR_MAP.terracotta;
           return (
-            <div key={lesson.id} className="bg-cream border border-rule rounded-lg p-4 flex items-center gap-4">
-              <div className="w-1 self-stretch rounded" style={{ background: colors.swatch }} />
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.swatch }}>
-                    {lesson.child?.name ?? 'Child'}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 bg-paper rounded text-ink-muted font-semibold uppercase tracking-wider">{lesson.subject}</span>
-                  <span className="text-xs text-ink-muted">{new Date(lesson.date).toLocaleDateString()}</span>
+            <div key={lesson.id} className="bg-cream border border-rule rounded-lg p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-1 self-stretch rounded" style={{ background: colors.swatch }} />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.swatch }}>
+                      {lesson.child?.name ?? 'Child'}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-paper rounded text-ink-muted font-semibold uppercase tracking-wider">{lesson.subject}</span>
+                    <span className="text-xs text-ink-muted">{new Date(lesson.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className="font-display text-base font-semibold mt-1">{lesson.curriculum} · {lesson.lessonRef}</div>
+                  {lesson.topic && <div className="text-sm text-ink-soft">{lesson.topic}</div>}
+                  {lesson.notes && <div className="text-xs text-ink-muted italic mt-1">{lesson.notes}</div>}
                 </div>
-                <div className="font-display text-base font-semibold mt-1">{lesson.curriculum} · {lesson.lessonRef}</div>
-                {lesson.topic && <div className="text-sm text-ink-soft">{lesson.topic}</div>}
-                {lesson.notes && <div className="text-xs text-ink-muted italic mt-1">{lesson.notes}</div>}
+                <button onClick={async () => {
+                  await fetch(`/api/lessons?id=${lesson.id}`, { method: 'DELETE' });
+                  setLessons(lessons.filter((l: Lesson) => l.id !== lesson.id));
+                }} className="text-ink-muted hover:text-red-700">
+                  <Trash2 size={14} />
+                </button>
               </div>
-              <button onClick={async () => {
-                await fetch(`/api/lessons?id=${lesson.id}`, { method: 'DELETE' });
-                setLessons(lessons.filter((l: Lesson) => l.id !== lesson.id));
-              }} className="text-ink-muted hover:text-red-700">
-                <Trash2 size={14} />
-              </button>
+              <div className="pl-5 mt-2">
+                <LessonPhotos lessonId={lesson.id} />
+              </div>
             </div>
           );
         })}
@@ -915,6 +907,70 @@ function NotesTab({ state, setState }: any) {
       <SectionHeader eyebrow="Strategy & Reference" title="Notes" subtitle="Free-form scratch space. Both adults edit live." />
       <textarea value={state.notes ?? ''} onChange={(e) => setState({ ...state, notes: e.target.value })}
         className="form-input min-h-[400px] w-full" placeholder="Anything: weekly reflections, kid milestones, curriculum tweaks…" />
+      <CalendarFeedCard />
+    </div>
+  );
+}
+
+function CalendarFeedCard() {
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function ensureUrl(rotate = false) {
+    setBusy(true);
+    const res = await fetch('/api/ical/setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ rotate }),
+    });
+    setBusy(false);
+    if (!res.ok) return;
+    const j = await res.json();
+    setUrl(j.url);
+  }
+
+  async function copy() {
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="mt-8 bg-paper border border-rule rounded-xl p-5">
+      <div className="font-display text-lg font-semibold">Calendar feed (iCal)</div>
+      <p className="text-xs text-ink-muted mt-1 mb-3">
+        Subscribe Google Calendar / Apple Calendar to your weekly topics + logged lessons. Treat the URL as a secret — anyone with it can read your plan. Rotate any time to invalidate the old URL.
+      </p>
+      {!url && (
+        <button onClick={() => ensureUrl(false)} disabled={busy}
+          className="px-3 py-1.5 text-sm bg-accent text-cream rounded disabled:opacity-50">
+          {busy ? 'Generating…' : 'Show my feed URL'}
+        </button>
+      )}
+      {url && (
+        <div className="space-y-2">
+          <div className="bg-cream border border-rule rounded p-2 text-xs font-mono break-all">{url}</div>
+          <div className="flex gap-2">
+            <button onClick={copy} className="px-3 py-1.5 text-xs border border-rule rounded text-ink hover:bg-cream">
+              {copied ? 'Copied ✓' : 'Copy URL'}
+            </button>
+            <button onClick={() => ensureUrl(true)} disabled={busy}
+              className="px-3 py-1.5 text-xs border border-rule rounded text-ink-soft hover:bg-cream disabled:opacity-50">
+              {busy ? '…' : 'Rotate (invalidates old URL)'}
+            </button>
+          </div>
+          <details className="text-xs text-ink-muted mt-2">
+            <summary className="cursor-pointer hover:text-ink">Subscribe instructions</summary>
+            <div className="mt-2 space-y-1 pl-3">
+              <div><b>Google Calendar:</b> Other calendars → + → From URL → paste.</div>
+              <div><b>Apple Calendar:</b> File → New Calendar Subscription → paste.</div>
+              <div><b>Outlook:</b> Add calendar → From internet → paste.</div>
+            </div>
+          </details>
+        </div>
+      )}
     </div>
   );
 }

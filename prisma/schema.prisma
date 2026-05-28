@@ -31,6 +31,9 @@ model User {
   name          String?
   image         String?
   createdAt     DateTime  @default(now())
+  // Opaque secret-token URL for personal iCal feed. Lazily generated on first
+  // /api/ical/setup call. Rotating it instantly invalidates the old feed URL.
+  icalToken     String?   @unique
 
   accounts    Account[]
   sessions    Session[]
@@ -39,6 +42,7 @@ model User {
   auditLogs   AuditLog[]
   notes       Note[]
   suggestions Suggestion[]
+  photos      Photo[]
 }
 
 model Account {
@@ -157,9 +161,28 @@ model Lesson {
   child    Child @relation(fields: [childId], references: [id])
   recorder User  @relation("LessonRecorder", fields: [recorderId], references: [id])
   term     Term? @relation(fields: [termId], references: [id])
+  photos   Photo[]
 
   @@index([childId, date])
   @@index([date])
+}
+
+// Photo attached to a Lesson (kid work sample, lesson artifact). Stored in
+// Vercel Blob (URL points to the blob). Soft-cascade: deleting a Lesson
+// deletes the Photo row; the blob is removed by the API DELETE handler.
+model Photo {
+  id           String   @id @default(cuid())
+  lessonId     String
+  url          String
+  mimeType     String?
+  sizeBytes    Int?
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  lesson     Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  uploadedBy User   @relation(fields: [uploadedById], references: [id])
+
+  @@index([lessonId])
 }
 
 enum Subject {
