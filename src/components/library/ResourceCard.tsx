@@ -1,27 +1,13 @@
 'use client';
 import { BookOpen, Video, Compass, Wrench, MapPin, FileText, Sparkles, type LucideIcon } from 'lucide-react';
-
-type Resource = {
-  id: string;
-  title: string;
-  description: string | null;
-  framework: string | null;
-  subject: string;
-  ageRange: string | null;
-  season: string | null;
-  weekHint: number | null;
-  type: string;
-  materials: string[];
-  bookList: string[];
-  fieldTripLocation: string | null;
-};
+import type { ResourceSummary } from '@/lib/types/library';
 
 const TYPE_ICON: Record<string, LucideIcon> = {
   EXPERIMENT: Sparkles, BOOK: BookOpen, ARTICLE: FileText, VIDEO: Video,
   PROJECT: Wrench, WORKSHEET: FileText, FIELD_TRIP: MapPin, OTHER: Compass,
 };
 
-export function ResourceCard({ resource, onClick }: { resource: Resource; onClick: () => void }) {
+export function ResourceCard({ resource, onClick }: { resource: ResourceSummary; onClick: () => void }) {
   const Icon: LucideIcon = TYPE_ICON[resource.type] ?? Compass;
   return (
     <button onClick={onClick}
@@ -43,4 +29,3 @@ export function ResourceCard({ resource, onClick }: { resource: Resource; onClic
   );
 }
 
-export type { Resource };
