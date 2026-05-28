@@ -5,6 +5,7 @@ import { seedMysteryScience } from './seeds/mystery-science';
 import { seedOutdoorHourChallenge } from './seeds/outdoor-hour-challenge';
 import { seedStoryOfTheWorldV1 } from './seeds/story-of-the-world-v1';
 import { seedBuildYourLibraryL0 } from './seeds/build-your-library-l0';
+import { seedSequenceAssignments } from './seeds/sequence-assignments';
 
 const prisma = new PrismaClient();
 
@@ -127,6 +128,7 @@ async function main() {
   await seedOutdoorHourChallenge(prisma);
   await seedStoryOfTheWorldV1(prisma);
   await seedBuildYourLibraryL0(prisma);
+  await seedSequenceAssignments(prisma);
 
   console.log('✅ Seeding complete.');
 }
