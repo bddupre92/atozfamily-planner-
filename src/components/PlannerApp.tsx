@@ -425,6 +425,17 @@ function ScheduleRow({ block, blockIdx, days, childrenList, dayChecks, onToggle 
   // Map UI assignment keys to actual child IDs by sortOrder
   const childKeys = ['eldest', 'middle', 'youngest'];
 
+  // For non-instruction blocks (Morning Anchor, Snack, Family Content, Closing
+  // Read-Aloud), every kid is doing the same thing — so the per-child label
+  // is the block's `detail` text. This unifies the row layout so every block
+  // shows the same child-card grid + per-child day checkboxes.
+  function getAssignment(i: number): string | undefined {
+    if (isInstruction) {
+      return block.assignments?.[childKeys[i]];
+    }
+    return block.detail;
+  }
+
   return (
     <div className="bg-cream border border-rule rounded-lg p-4 mb-2.5">
       <div className="flex items-start gap-4 mb-3">
@@ -433,70 +444,45 @@ function ScheduleRow({ block, blockIdx, days, childrenList, dayChecks, onToggle 
           <div className="font-display text-base font-semibold mt-0.5">{block.label}</div>
         </div>
         <div className="flex-1">
-          {!isInstruction && <div className="text-sm text-ink-soft pt-1">{block.detail}</div>}
-          {isInstruction && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {childrenList.map((child: Child, i: number) => {
+              const colors = COLOR_MAP[child.colorKey] ?? COLOR_MAP.terracotta;
+              const assignment = getAssignment(i);
+              if (!assignment) return null;
+              return (
+                <div key={child.id} className="rounded px-2.5 py-1.5"
+                  style={{ background: colors.soft, borderColor: colors.swatch + '33', borderWidth: 1 }}>
+                  <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5"
+                    style={{ color: colors.swatch }}>{child.name} · age {child.age}</div>
+                  <div className="text-xs font-semibold text-ink">{assignment}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-4 pl-32 items-center">
+        <div className="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">This Week</div>
+        {days.map((day: string) => (
+          <div key={day} className="flex items-center gap-1.5">
+            <span className="text-[10px] text-ink-muted font-medium w-6">{day}</span>
+            <div className="flex gap-1">
               {childrenList.map((child: Child, i: number) => {
-                const colors = COLOR_MAP[child.colorKey] ?? COLOR_MAP.terracotta;
-                const assignmentKey = childKeys[i];
-                const assignment = block.assignments?.[assignmentKey];
+                const assignment = getAssignment(i);
                 if (!assignment) return null;
+                const colors = COLOR_MAP[child.colorKey] ?? COLOR_MAP.terracotta;
+                const checked = !!dayChecks?.[day]?.[blockIdx]?.[child.id];
                 return (
-                  <div key={child.id} className="rounded px-2.5 py-1.5"
-                    style={{ background: colors.soft, borderColor: colors.swatch + '33', borderWidth: 1 }}>
-                    <div className="text-[9px] font-semibold uppercase tracking-wider mb-0.5"
-                      style={{ color: colors.swatch }}>{child.name} · age {child.age}</div>
-                    <div className="text-xs font-semibold text-ink">{assignment}</div>
-                  </div>
+                  <button key={child.id} onClick={() => onToggle(day, blockIdx, child.id)}
+                    title={`${child.name}: ${assignment}`}
+                    className="w-4 h-4 rounded border-2 transition hover:scale-110"
+                    style={{ borderColor: colors.swatch, background: checked ? colors.swatch : 'transparent' }} />
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        ))}
       </div>
-      {isInstruction && (
-        <div className="flex gap-4 pl-32 items-center">
-          <div className="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">This Week</div>
-          {days.map((day: string) => (
-            <div key={day} className="flex items-center gap-1.5">
-              <span className="text-[10px] text-ink-muted font-medium w-6">{day}</span>
-              <div className="flex gap-1">
-                {childrenList.map((child: Child, i: number) => {
-                  const assignmentKey = childKeys[i];
-                  if (!block.assignments?.[assignmentKey]) return null;
-                  const colors = COLOR_MAP[child.colorKey] ?? COLOR_MAP.terracotta;
-                  const checked = dayChecks?.[day]?.[blockIdx]?.[child.id];
-                  return (
-                    <button key={child.id} onClick={() => onToggle(day, blockIdx, child.id)}
-                      title={`${child.name}: ${block.assignments[assignmentKey]}`}
-                      className="w-4 h-4 rounded border-2 transition hover:scale-110"
-                      style={{ borderColor: colors.swatch, background: checked ? colors.swatch : 'transparent' }} />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {!isInstruction && (
-        <div className="flex gap-4 pl-32 items-center">
-          <div className="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">This Week</div>
-          {days.map((day: string) => {
-            const checked = !!dayChecks?.[day]?.[blockIdx]?._all;
-            return (
-              <div key={day} className="flex items-center gap-1.5">
-                <span className="text-[10px] text-ink-muted font-medium w-6">{day}</span>
-                <button
-                  onClick={() => onToggle(day, blockIdx, '_all')}
-                  title={`Mark ${block.label} done for ${day}`}
-                  className="w-4 h-4 rounded border-2 transition hover:scale-110"
-                  style={{ borderColor: '#8A7A60', background: checked ? '#8A7A60' : 'transparent' }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
