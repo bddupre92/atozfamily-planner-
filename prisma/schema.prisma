@@ -31,6 +31,9 @@ model User {
   name          String?
   image         String?
   createdAt     DateTime  @default(now())
+  // Opaque secret-token URL for personal iCal feed. Lazily generated on first
+  // /api/ical/setup call. Rotating it instantly invalidates the old feed URL.
+  icalToken     String?   @unique
 
   accounts    Account[]
   sessions    Session[]

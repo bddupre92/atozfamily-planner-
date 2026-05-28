@@ -901,6 +901,70 @@ function NotesTab({ state, setState }: any) {
       <SectionHeader eyebrow="Strategy & Reference" title="Notes" subtitle="Free-form scratch space. Both adults edit live." />
       <textarea value={state.notes ?? ''} onChange={(e) => setState({ ...state, notes: e.target.value })}
         className="form-input min-h-[400px] w-full" placeholder="Anything: weekly reflections, kid milestones, curriculum tweaks…" />
+      <CalendarFeedCard />
+    </div>
+  );
+}
+
+function CalendarFeedCard() {
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function ensureUrl(rotate = false) {
+    setBusy(true);
+    const res = await fetch('/api/ical/setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ rotate }),
+    });
+    setBusy(false);
+    if (!res.ok) return;
+    const j = await res.json();
+    setUrl(j.url);
+  }
+
+  async function copy() {
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="mt-8 bg-paper border border-rule rounded-xl p-5">
+      <div className="font-display text-lg font-semibold">Calendar feed (iCal)</div>
+      <p className="text-xs text-ink-muted mt-1 mb-3">
+        Subscribe Google Calendar / Apple Calendar to your weekly topics + logged lessons. Treat the URL as a secret — anyone with it can read your plan. Rotate any time to invalidate the old URL.
+      </p>
+      {!url && (
+        <button onClick={() => ensureUrl(false)} disabled={busy}
+          className="px-3 py-1.5 text-sm bg-accent text-cream rounded disabled:opacity-50">
+          {busy ? 'Generating…' : 'Show my feed URL'}
+        </button>
+      )}
+      {url && (
+        <div className="space-y-2">
+          <div className="bg-cream border border-rule rounded p-2 text-xs font-mono break-all">{url}</div>
+          <div className="flex gap-2">
+            <button onClick={copy} className="px-3 py-1.5 text-xs border border-rule rounded text-ink hover:bg-cream">
+              {copied ? 'Copied ✓' : 'Copy URL'}
+            </button>
+            <button onClick={() => ensureUrl(true)} disabled={busy}
+              className="px-3 py-1.5 text-xs border border-rule rounded text-ink-soft hover:bg-cream disabled:opacity-50">
+              {busy ? '…' : 'Rotate (invalidates old URL)'}
+            </button>
+          </div>
+          <details className="text-xs text-ink-muted mt-2">
+            <summary className="cursor-pointer hover:text-ink">Subscribe instructions</summary>
+            <div className="mt-2 space-y-1 pl-3">
+              <div><b>Google Calendar:</b> Other calendars → + → From URL → paste.</div>
+              <div><b>Apple Calendar:</b> File → New Calendar Subscription → paste.</div>
+              <div><b>Outlook:</b> Add calendar → From internet → paste.</div>
+            </div>
+          </details>
+        </div>
+      )}
     </div>
   );
 }
