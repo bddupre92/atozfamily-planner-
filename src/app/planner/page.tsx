@@ -10,7 +10,6 @@ export default async function PlannerPage() {
   const session = await auth();
   if (!session?.user?.email) redirect('/signin?callbackUrl=/planner');
 
-  const now = new Date();
   const [state, childrenList, terms, termProgress, recentLessons, recentReflections, weeklyTopics] =
     await Promise.all([
       prisma.plannerState.findUnique({ where: { id: 'default' } }),
@@ -27,12 +26,10 @@ export default async function PlannerPage() {
         orderBy: { date: 'desc' },
         take: 30,
       }),
-      // Weekly topics for the term containing `now`, or the closest upcoming term.
-      // Client-side WeekTab re-derives which week is current and refetches if needed.
+      // Weekly topics across ALL terms — small dataset (one row per
+      // term-week-subject), and the client needs both current-term picks AND
+      // upcoming-term picks (the UI surfaces the next-upcoming term when off-season).
       prisma.weeklyTopic.findMany({
-        where: {
-          term: { startDate: { lte: now }, endDate: { gte: now } },
-        },
         include: {
           resource: {
             select: {
