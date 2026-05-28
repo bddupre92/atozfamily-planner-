@@ -18,6 +18,8 @@ async function upsertResource(prisma: PrismaClient, r: ResourceInput) {
     subject: Subject.HISTORY,
     type: ResourceType.BOOK,
     ageRange: '4-6',
+    ageRangeMin: 4,
+    ageRangeMax: 6,
     season: 'any',
     tags: ['picture-book', 'tier-4-supplement', 'multi-age'],
     active: true,

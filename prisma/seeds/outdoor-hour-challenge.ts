@@ -20,6 +20,8 @@ async function upsertResource(prisma: PrismaClient, r: ResourceInput) {
     framework: 'OHC',
     subject: Subject.SCIENCE,
     ageRange: '4-8',
+    ageRangeMin: 4,
+    ageRangeMax: 8,
     tags: ['outdoor', 'wednesday', 'charlotte-mason', 'pnw'],
     active: true,
   };

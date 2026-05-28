@@ -14,7 +14,11 @@ export async function GET(req: NextRequest) {
   const framework = sp.get('framework');
   const season = sp.get('season');
   const term = sp.get('term');
-  const ageMin = sp.get('ageMin') ? parseInt(sp.get('ageMin')!, 10) : null;
+  // `age` = a child's age in years; returns resources whose [min..max] range
+  // covers it. Also accepts legacy `ageMin` (previously a buggy substring match
+  // on the string `ageRange` column; now an integer range query).
+  const ageParam = sp.get('age') ?? sp.get('ageMin');
+  const age = ageParam ? parseInt(ageParam, 10) : null;
   const q = sp.get('q')?.trim().toLowerCase();
 
   const where: any = { active: true, deletedAt: null };
@@ -22,7 +26,10 @@ export async function GET(req: NextRequest) {
   if (framework) where.framework = framework;
   if (season) where.season = season;
   if (term) where.termIds = { has: term };
-  if (ageMin !== null) where.ageRange = { contains: String(ageMin) };
+  if (age !== null && !Number.isNaN(age)) {
+    where.ageRangeMin = { lte: age };
+    where.ageRangeMax = { gte: age };
+  }
   if (q) {
     where.OR = [
       { title: { contains: q, mode: 'insensitive' } },
