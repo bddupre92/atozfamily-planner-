@@ -1,15 +1,6 @@
 'use client';
 import { X, ExternalLink, MapPin, BookOpen } from 'lucide-react';
-import type { Resource } from './ResourceCard';
-
-type ResourceFull = Resource & {
-  url: string | null;
-  sourceUrl: string | null;
-  videoUrl: string | null;
-  activities: { tier7?: any; tier4?: any } | null;
-  notes: string | null;
-  tags: string[];
-};
+import type { ResourceFull } from '@/lib/types/library';
 
 export function ResourceDetailDrawer({ resource, onClose }: { resource: ResourceFull | null; onClose: () => void }) {
   if (!resource) return null;

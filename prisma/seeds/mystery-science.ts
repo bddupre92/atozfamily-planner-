@@ -19,6 +19,8 @@ async function upsertResource(prisma: PrismaClient, r: ResourceInput) {
     subject: Subject.SCIENCE,
     type: ResourceType.VIDEO,
     ageRange: '5-8',
+    ageRangeMin: 5,
+    ageRangeMax: 8,
     tags: ['video-led', 'hands-on', 'indoor', 'monday'],
     bookList: [] as string[],
     active: true,

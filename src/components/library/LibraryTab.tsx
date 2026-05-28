@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
-import { ResourceCard, type Resource } from './ResourceCard';
+import { ResourceCard } from './ResourceCard';
 import { ResourceDetailDrawer } from './ResourceDetailDrawer';
+import type { ResourceSummary, ResourceFull } from '@/lib/types/library';
 
 const SUBJECTS = ['', 'SCIENCE', 'HISTORY', 'MATH', 'ENGLISH', 'ART', 'MUSIC', 'PE', 'OTHER'];
 const FRAMEWORKS = ['', 'Mystery Science', 'OHC', 'SOTW Vol 1', 'BYL Level 0'];
@@ -14,8 +15,8 @@ export function LibraryTab({ termIds }: { termIds: string[] }) {
   const [season, setSeason] = useState('');
   const [term, setTerm] = useState('');
   const [q, setQ] = useState('');
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [detail, setDetail] = useState<any | null>(null);
+  const [resources, setResources] = useState<ResourceSummary[]>([]);
+  const [detail, setDetail] = useState<ResourceFull | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -37,8 +38,13 @@ export function LibraryTab({ termIds }: { termIds: string[] }) {
 
   async function openDetail(id: string) {
     const res = await fetch(`/api/library/${id}`);
+    if (!res.ok) {
+      // Resource may have been soft-deleted between list and detail fetch.
+      // Silently drop the click rather than show a half-empty drawer.
+      return;
+    }
     const j = await res.json();
-    setDetail(j.resource);
+    if (j?.resource) setDetail(j.resource as ResourceFull);
   }
 
   return (

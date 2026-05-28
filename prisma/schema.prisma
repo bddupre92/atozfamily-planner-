@@ -314,10 +314,17 @@ model CurriculumResource {
   active            Boolean   @default(true)
   deletedAt         DateTime?
 
+  // Age range as integers for proper filter math. `ageRange` (String) is the
+  // human-readable label; `ageRangeMin`/`ageRangeMax` are the queryable form.
+  ageRangeMin Int?
+  ageRangeMax Int?
+
   weeklyTopics WeeklyTopic[]
 
   @@index([subject, season])
   @@index([framework])
+  @@index([ageRangeMin])
+  @@index([ageRangeMax])
 }
 
 enum ResourceType {
