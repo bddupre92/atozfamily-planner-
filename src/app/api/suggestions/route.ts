@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
 
   if (!title || !text) return NextResponse.json({ error: 'title and body required' }, { status: 400 });
   if (title.length > 200) return NextResponse.json({ error: 'title too long' }, { status: 400 });
+  if (text.length > 5000) return NextResponse.json({ error: 'body too long (max 5000 chars)' }, { status: 400 });
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
   if (!user) return NextResponse.json({ error: 'user not found' }, { status: 404 });

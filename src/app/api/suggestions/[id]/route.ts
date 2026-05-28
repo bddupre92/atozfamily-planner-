@@ -12,6 +12,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const session = await auth();
   if (!session?.user?.email) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!user) return NextResponse.json({ error: 'user not found' }, { status: 404 });
+
   const body = await req.json();
   const data: any = {};
 
@@ -29,8 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const updated = await prisma.suggestion.update({ where: { id: params.id }, data });
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email! } });
-  await audit({ userId: user?.id, action: 'suggestion.update', entityType: 'Suggestion', entityId: params.id, payload: data });
+  await audit({ userId: user.id, action: 'suggestion.update', entityType: 'Suggestion', entityId: params.id, payload: data });
 
   return NextResponse.json({ suggestion: updated });
 }
