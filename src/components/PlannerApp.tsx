@@ -10,6 +10,8 @@ import { LibraryTab } from './library/LibraryTab';
 import { SuggestionsTab } from './suggestions/SuggestionsTab';
 import { SuggestionFAB } from './suggestions/SuggestionFAB';
 import { WeeklyTopicPicker } from './library/WeeklyTopicPicker';
+import { ResourceDetailDrawer } from './library/ResourceDetailDrawer';
+import type { ResourceFull } from '@/lib/types/library';
 import { NextLessonCard, type SequenceProgressRow } from './library/NextLessonCard';
 import { currentOrUpcomingTerm, currentWeekOfTerm } from '@/lib/week';
 import { MapPin } from 'lucide-react';
@@ -223,10 +225,12 @@ function TopicCard({
   label,
   topic,
   onPick,
+  onOpenDetail,
 }: {
   label: string;
   topic: WeeklyTopicWithResource | undefined;
   onPick: () => void;
+  onOpenDetail: (resourceId: string) => void;
 }) {
   return (
     <div className="bg-cream border border-rule rounded-lg p-4 flex flex-col">
@@ -235,22 +239,29 @@ function TopicCard({
       </div>
       {topic ? (
         <>
-          <div className="text-sm font-semibold leading-tight">{topic.resource.title}</div>
-          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-            {topic.resource.framework && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-paper border border-rule text-ink-soft">
-                {topic.resource.framework}
+          <button
+            onClick={() => onOpenDetail(topic.resource.id)}
+            className="text-left -mx-2 px-2 py-1 rounded hover:bg-paper transition"
+            title="Click for full details — materials, activities, field trip info"
+          >
+            <div className="text-sm font-semibold leading-tight">{topic.resource.title}</div>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              {topic.resource.framework && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-paper border border-rule text-ink-soft">
+                  {topic.resource.framework}
+                </span>
+              )}
+              <span className="text-[10px] text-ink-muted">
+                {topic.resource.materials.length} materials
               </span>
-            )}
-            <span className="text-[10px] text-ink-muted">
-              {topic.resource.materials.length} materials
-            </span>
-            {topic.resource.fieldTripLocation && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-paper border border-rule text-ink-soft inline-flex items-center gap-0.5">
-                <MapPin size={9} /> trip
-              </span>
-            )}
-          </div>
+              {topic.resource.fieldTripLocation && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-paper border border-rule text-ink-soft inline-flex items-center gap-0.5">
+                  <MapPin size={9} /> trip
+                </span>
+              )}
+              <span className="text-[10px] text-accent ml-auto">View details →</span>
+            </div>
+          </button>
           <button
             onClick={onPick}
             className="self-start mt-3 text-xs px-3 py-1.5 border border-rule rounded text-ink-soft hover:bg-paper"
@@ -291,6 +302,14 @@ function WeekTab({ state, setState, childrenList, terms, weeklyTopics, onTopicCh
   );
 
   const [pickerSubject, setPickerSubject] = useState<'SCIENCE' | 'HISTORY' | null>(null);
+  const [detail, setDetail] = useState<ResourceFull | null>(null);
+
+  async function openDetail(resourceId: string) {
+    const res = await fetch(`/api/library/${resourceId}`);
+    if (!res.ok) return;
+    const j = await res.json();
+    if (j?.resource) setDetail(j.resource as ResourceFull);
+  }
 
   const togglePrep = (idx: number) => {
     setState({ ...state, weekState: { ...state.weekState, prep: { ...state.weekState.prep, [idx]: !state.weekState.prep?.[idx] } } });
@@ -328,11 +347,13 @@ function WeekTab({ state, setState, childrenList, terms, weeklyTopics, onTopicCh
               label="Science · Mon / Wed"
               topic={scienceTopic}
               onPick={() => setPickerSubject('SCIENCE')}
+              onOpenDetail={openDetail}
             />
             <TopicCard
               label="History · Tue / Thu"
               topic={historyTopic}
               onPick={() => setPickerSubject('HISTORY')}
+              onOpenDetail={openDetail}
             />
           </div>
         </div>
@@ -349,6 +370,8 @@ function WeekTab({ state, setState, childrenList, terms, weeklyTopics, onTopicCh
           onPicked={() => onTopicChanged(term.id)}
         />
       )}
+
+      <ResourceDetailDrawer resource={detail} onClose={() => setDetail(null)} />
 
       {/* Prep */}
       <div className="bg-paper border border-rule rounded-xl p-6 mb-6">
@@ -453,6 +476,25 @@ function ScheduleRow({ block, blockIdx, days, childrenList, dayChecks, onToggle 
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {!isInstruction && (
+        <div className="flex gap-4 pl-32 items-center">
+          <div className="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">This Week</div>
+          {days.map((day: string) => {
+            const checked = !!dayChecks?.[day]?.[blockIdx]?._all;
+            return (
+              <div key={day} className="flex items-center gap-1.5">
+                <span className="text-[10px] text-ink-muted font-medium w-6">{day}</span>
+                <button
+                  onClick={() => onToggle(day, blockIdx, '_all')}
+                  title={`Mark ${block.label} done for ${day}`}
+                  className="w-4 h-4 rounded border-2 transition hover:scale-110"
+                  style={{ borderColor: '#8A7A60', background: checked ? '#8A7A60' : 'transparent' }}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
