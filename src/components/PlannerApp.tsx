@@ -9,6 +9,10 @@ import {
 import { LibraryTab } from './library/LibraryTab';
 import { SuggestionsTab } from './suggestions/SuggestionsTab';
 import { SuggestionFAB } from './suggestions/SuggestionFAB';
+import { WeeklyTopicPicker } from './library/WeeklyTopicPicker';
+import { NextLessonCard, type SequenceProgressRow } from './library/NextLessonCard';
+import { currentOrUpcomingTerm, currentWeekOfTerm } from '@/lib/week';
+import { MapPin } from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -76,6 +80,23 @@ const CURRICULUM_TRACKS: Record<string, string[]> = {
 // ============================================================================
 // MAIN APP
 // ============================================================================
+type WeeklyTopicWithResource = {
+  id: string;
+  termId: string;
+  weekNumber: number;
+  subject: 'SCIENCE' | 'HISTORY';
+  resourceId: string;
+  notes: string | null;
+  selectedBy: string;
+  resource: {
+    id: string;
+    title: string;
+    framework: string | null;
+    materials: string[];
+    fieldTripLocation: string | null;
+  };
+};
+
 type Props = {
   session: { email: string; name: string | null };
   initialState: any;
@@ -84,15 +105,29 @@ type Props = {
   termProgress: TermProgress[];
   recentLessons: Lesson[];
   recentReflections: Reflection[];
+  weeklyTopics: WeeklyTopicWithResource[];
 };
 
-export function PlannerApp({ session, initialState, childrenList, terms, termProgress: tp0, recentLessons: rl0, recentReflections: rr0 }: Props) {
+export function PlannerApp({ session, initialState, childrenList, terms, termProgress: tp0, recentLessons: rl0, recentReflections: rr0, weeklyTopics: wt0 }: Props) {
   const [activeTab, setActiveTab] = useState<'week' | 'year' | 'lessons' | 'reflections' | 'progress' | 'audit' | 'notes' | 'library' | 'suggestions'>('week');
   const [state, setState] = useState<any>(initialState ?? { weekState: { prep: {}, daily: {} }, selectedTermId: 'summer-2026' });
   const [termProgress, setTermProgress] = useState(tp0);
   const [lessons, setLessons] = useState(rl0);
   const [reflections, setReflections] = useState(rr0);
+  const [weeklyTopics, setWeeklyTopics] = useState<WeeklyTopicWithResource[]>(wt0);
   const [savedAt, setSavedAt] = useState<string>('');
+
+  // Reload weekly topics after a pick/clear so the WeekTab card reflects state.
+  async function refreshWeeklyTopics(termId: string) {
+    const res = await fetch(`/api/weekly-topic?termId=${encodeURIComponent(termId)}`);
+    if (!res.ok) return;
+    const j = await res.json();
+    // Replace only this term's rows; preserve any other-term picks already in state.
+    setWeeklyTopics((prev) => [
+      ...prev.filter((t) => t.termId !== termId),
+      ...((j.topics ?? []) as WeeklyTopicWithResource[]),
+    ]);
+  }
 
   // Debounced save
   useEffect(() => {
@@ -157,7 +192,16 @@ export function PlannerApp({ session, initialState, childrenList, terms, termPro
       </nav>
 
       <main className="max-w-7xl mx-auto px-6 py-8 pb-20">
-        {activeTab === 'week' && <WeekTab state={state} setState={setState} childrenList={childrenList} />}
+        {activeTab === 'week' && (
+          <WeekTab
+            state={state}
+            setState={setState}
+            childrenList={childrenList}
+            terms={terms}
+            weeklyTopics={weeklyTopics}
+            onTopicChanged={refreshWeeklyTopics}
+          />
+        )}
         {activeTab === 'year' && <YearTab state={state} setState={setState} childrenList={childrenList} terms={terms} termProgress={termProgress} setTermProgress={setTermProgress} />}
         {activeTab === 'lessons' && <LessonsTab childrenList={childrenList} lessons={lessons} setLessons={setLessons} />}
         {activeTab === 'reflections' && <ReflectionsTab childrenList={childrenList} reflections={reflections} setReflections={setReflections} />}
@@ -175,8 +219,79 @@ export function PlannerApp({ session, initialState, childrenList, terms, termPro
 // ============================================================================
 // WEEK TAB
 // ============================================================================
-function WeekTab({ state, setState, childrenList }: any) {
+function TopicCard({
+  label,
+  topic,
+  onPick,
+}: {
+  label: string;
+  topic: WeeklyTopicWithResource | undefined;
+  onPick: () => void;
+}) {
+  return (
+    <div className="bg-cream border border-rule rounded-lg p-4 flex flex-col">
+      <div className="text-[10px] uppercase tracking-wider text-ink-muted font-semibold mb-1">
+        {label}
+      </div>
+      {topic ? (
+        <>
+          <div className="text-sm font-semibold leading-tight">{topic.resource.title}</div>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {topic.resource.framework && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-paper border border-rule text-ink-soft">
+                {topic.resource.framework}
+              </span>
+            )}
+            <span className="text-[10px] text-ink-muted">
+              {topic.resource.materials.length} materials
+            </span>
+            {topic.resource.fieldTripLocation && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-paper border border-rule text-ink-soft inline-flex items-center gap-0.5">
+                <MapPin size={9} /> trip
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onPick}
+            className="self-start mt-3 text-xs px-3 py-1.5 border border-rule rounded text-ink-soft hover:bg-paper"
+          >
+            Change
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="text-sm text-ink-muted italic flex-1">No topic picked yet.</div>
+          <button
+            onClick={onPick}
+            className="self-start mt-3 text-xs px-3 py-1.5 bg-accent text-cream rounded"
+          >
+            Pick topic
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function WeekTab({ state, setState, childrenList, terms, weeklyTopics, onTopicChanged }: any) {
   const days = ['Mon', 'Tue', 'Wed', 'Thu'];
+
+  // Pick the term that contains today (or next-upcoming) and the week number
+  // within it. Off-season → default to week 1 of the current/upcoming term.
+  const term = currentOrUpcomingTerm(terms) ?? terms[0];
+  const weekNumber = term ? (currentWeekOfTerm(term.startDate, term.weeks) ?? 1) : 1;
+
+  const scienceTopic = weeklyTopics.find(
+    (t: WeeklyTopicWithResource) =>
+      t.termId === term?.id && t.weekNumber === weekNumber && t.subject === 'SCIENCE',
+  );
+  const historyTopic = weeklyTopics.find(
+    (t: WeeklyTopicWithResource) =>
+      t.termId === term?.id && t.weekNumber === weekNumber && t.subject === 'HISTORY',
+  );
+
+  const [pickerSubject, setPickerSubject] = useState<'SCIENCE' | 'HISTORY' | null>(null);
+
   const togglePrep = (idx: number) => {
     setState({ ...state, weekState: { ...state.weekState, prep: { ...state.weekState.prep, [idx]: !state.weekState.prep?.[idx] } } });
   };
@@ -196,6 +311,44 @@ function WeekTab({ state, setState, childrenList }: any) {
     <div>
       <SectionHeader eyebrow="Weekly Operations" title="This Week"
         subtitle="Click any block to mark complete. Friday is flex day." />
+
+      {/* Family Content topics — Science (Mon/Wed) + History (Tue/Thu) */}
+      {term && (
+        <div className="bg-paper border border-rule rounded-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="font-display text-lg font-semibold">Family Content</div>
+              <div className="text-xs text-ink-muted mt-0.5">
+                {term.name} · Week {weekNumber} · curated from the library
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <TopicCard
+              label="Science · Mon / Wed"
+              topic={scienceTopic}
+              onPick={() => setPickerSubject('SCIENCE')}
+            />
+            <TopicCard
+              label="History · Tue / Thu"
+              topic={historyTopic}
+              onPick={() => setPickerSubject('HISTORY')}
+            />
+          </div>
+        </div>
+      )}
+
+      {term && pickerSubject && (
+        <WeeklyTopicPicker
+          open
+          termId={term.id}
+          weekNumber={weekNumber}
+          subject={pickerSubject}
+          age={7}
+          onClose={() => setPickerSubject(null)}
+          onPicked={() => onTopicChanged(term.id)}
+        />
+      )}
 
       {/* Prep */}
       <div className="bg-paper border border-rule rounded-xl p-6 mb-6">
@@ -615,6 +768,16 @@ function ReflectionForm({ childrenList, onSaved, onCancel }: any) {
 // PROGRESS TAB
 // ============================================================================
 function ProgressTab({ childrenList, terms, termProgress, lessons }: any) {
+  const [progressRows, setProgressRows] = useState<SequenceProgressRow[]>([]);
+
+  async function loadProgress() {
+    const res = await fetch('/api/sequence-progress');
+    if (!res.ok) return;
+    const j = await res.json();
+    setProgressRows((j.rows ?? []) as SequenceProgressRow[]);
+  }
+  useEffect(() => { loadProgress(); }, []);
+
   return (
     <div>
       <SectionHeader eyebrow="Tracking" title="Per-Child Progress" subtitle="Long-arc view across terms." />
@@ -624,6 +787,7 @@ function ProgressTab({ childrenList, terms, termProgress, lessons }: any) {
           const colors = COLOR_MAP[child.colorKey] ?? COLOR_MAP.terracotta;
           const total = termProgress.filter((p: TermProgress) => p.childId === child.id).reduce((s: number, p: TermProgress) => s + p.lessonsComplete, 0);
           const lessonCount = lessons.filter((l: Lesson) => l.childId === child.id).length;
+          const childRows = progressRows.filter((r) => r.childId === child.id);
           return (
             <div key={child.id} className="bg-cream border rounded-xl p-5"
               style={{ borderColor: colors.swatch + '66' }}>
@@ -645,6 +809,18 @@ function ProgressTab({ childrenList, terms, termProgress, lessons }: any) {
                   <div className="font-display text-xl font-semibold" style={{ color: colors.swatch }}>{total}</div>
                 </div>
               </div>
+
+              {childRows.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1.5">Next Lessons</div>
+                  <div className="space-y-2">
+                    {childRows.map((row) => (
+                      <NextLessonCard key={row.assignmentId} row={row} onAdvanced={loadProgress} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1.5">Curriculum Path</div>
               <div className="flex flex-wrap gap-1">
                 {(CURRICULUM_TRACKS[child.colorKey] ?? []).map((step, i) => (
